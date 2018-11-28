@@ -1,9 +1,9 @@
 import os
 from tempfile import NamedTemporaryFile
-from subprocess import check_call
 import shutil
 
 from leapp.actors import Actor
+from leapp.libraries.common.check_call import check_cmd_call
 from leapp.models import FilteredRpmTransactionTasks, UsedTargetRepositories
 from leapp.tags import RPMUpgradePhaseTag, IPUWorkflowTag
 
@@ -50,7 +50,7 @@ class DnfShellRpmUpgrade(Actor):
         # FIXME: that's ugly hack, we should get info which file remove and
         # + do it more nicely..
         cmd = ['rm', '-f', '/etc/pki/product/69.pem']
-        check_call(cmd)
+        check_cmd_call(cmd)
 
         data = next(self.consume(FilteredRpmTransactionTasks), FilteredRpmTransactionTasks())
         with NamedTemporaryFile() as script:
@@ -60,4 +60,4 @@ class DnfShellRpmUpgrade(Actor):
 
             script.write('\n'.join(cmds))
             script.flush()
-            check_call(dnf_command + [script.name])
+            check_cmd_call(dnf_command + [script.name])

@@ -1,6 +1,6 @@
 from leapp.actors import Actor
+from leapp.libraries.common.check_calls import check_cmd_call
 from leapp.tags import IPUWorkflowTag, InitRamStartPhaseTag
-from subprocess import check_call
 
 
 class RemoveInitRdBootEntry(Actor):
@@ -11,10 +11,10 @@ class RemoveInitRdBootEntry(Actor):
     tags = (IPUWorkflowTag, InitRamStartPhaseTag)
 
     def process(self):
-        check_call([
+        check_cmd_call([
             '/bin/mount', '-a'
         ])
-        check_call([
+        check_cmd_call([
             '/usr/sbin/grubby',
             '--remove-kernel=/boot/vmlinuz-upgrade.x86_64'
         ])

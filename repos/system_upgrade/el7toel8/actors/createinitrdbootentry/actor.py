@@ -1,6 +1,7 @@
 from leapp.actors import Actor
+from leapp.libraries.common.check_calls import check_cmd_call
 from leapp.tags import IPUWorkflowTag, InterimPreparationPhaseTag
-from subprocess import check_call
+
 
 class CreateInitRdBootEntry(Actor):
     name = 'create_init_rd_boot_entry'
@@ -19,8 +20,8 @@ class CreateInitRdBootEntry(Actor):
                                details='You may want to try to reinstall "leapp-repository" package')
             return
 
-        check_call(['/bin/cp', vmlinuz_fpath, initram_fpath, '/boot'])
-        check_call([
+        check_cmd_call(['/bin/cp', vmlinuz_fpath, initram_fpath, '/boot'])
+        check_cmd_call([
             '/usr/sbin/grubby',
             '--add-kernel=/boot/vmlinuz-upgrade.x86_64',
             '--initrd=/boot/initramfs-upgrade.x86_64.img',

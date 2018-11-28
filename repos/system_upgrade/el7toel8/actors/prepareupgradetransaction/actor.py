@@ -5,6 +5,7 @@ from leapp.libraries.actor import preparetransaction
 from leapp.models import FilteredRpmTransactionTasks, OSReleaseFacts, TargetRepositories
 from leapp.models import UsedTargetRepositories, UsedTargetRepository
 from leapp.tags import IPUWorkflowTag, DownloadPhaseTag
+from leapp.libraries.common.check_calls import produce_error
 
 from subprocess import CalledProcessError, call
 
@@ -15,9 +16,6 @@ class PrepareUpgradeTransaction(Actor):
     consumes = (OSReleaseFacts, FilteredRpmTransactionTasks, TargetRepositories)
     produces = (UsedTargetRepositories,)
     tags = (IPUWorkflowTag, DownloadPhaseTag,)
-
-    def produce_error(self, error):
-        self.report_error('Error: %s: %s' % (error.summary, error.details))
 
     def is_system_registered_and_attached(self):
         # TODO: put this to different actor and process it already during check
@@ -49,7 +47,12 @@ class PrepareUpgradeTransaction(Actor):
         if sys_var not in var_prodcert:
             return preparetransaction.ErrorData(
                 summary="Error while trying to retrieve Product Cert file",
-                details="Product cert file not available for System Variant '{}'".format(sys_var))
+                details="Product cert file not available for System Variant '{}'".format(sys_var),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=0)
 
         prod_cert_path = self.get_file_path(var_prodcert[sys_var])
         for path in ('/etc/pki/product-default', '/etc/pki/product'):
@@ -94,7 +97,12 @@ class PrepareUpgradeTransaction(Actor):
         except CalledProcessError as e:
             return preparetransaction.ErrorData(
                 summary='Error while trying to get list of available RHEL repositories',
-                details=str(e))
+                details=str(e),
+                stdout=e.stdout,
+                stderr=e.stderr,
+                cmd=['systemd-nspawn', '--register=no', '-D', overlayfs_info.merged, 'subscription-manager', 'repos'],
+                rc=e.returncode,
+                errno=0)
 
         # FIXME: check that required UIDs (baseos, appstream)
         # + or check that all required RHEL UIDs are available.
@@ -105,7 +113,12 @@ class PrepareUpgradeTransaction(Actor):
                          ' provided by the subscription-manager. Possibly you'
                          ' are missing a valid SKU for the target system or network'
                          ' connection failed. Check whether you the system is attached'
-                         ' to the valid SKU providing target repositories.'))
+                         ' to the valid SKU providing target repositories.'),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=0)
         for target_repo in self.consume(TargetRepositories):
             for rhel_repo in target_repo.rhel_repos:
                 if rhel_repo.uid in available_target_uids:
@@ -157,8 +170,12 @@ class PrepareUpgradeTransaction(Actor):
         if not self.target_uids:
             return preparetransaction.ErrorData(
                 summary='Cannot find any required target repository.',
-                details='The list of available required repositories is empty.'
-                )
+                details='The list of available required repositories is empty.',
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=0)
 
         # enable repositores for upgrade
         dnf_command += ['--enablerepo', ','.join(self.target_uids)]
@@ -207,8 +224,13 @@ class PrepareUpgradeTransaction(Actor):
                 details=('The system has to be registered and subscribed to be able'
                          ' to proceed the upgrade. Register your system with the'
                          ' subscription-manager tool and attach'
-                         ' it to proper SKUs to be able to proceed the upgrade.'))
-            self.produce_error(error)
+                         ' it to proper SKUs to be able to proceed the upgrade.'),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=0)
+            produce_error(self, error)
             return
 
         # TODO: Find a better place where to run this (perhaps even gate this behind user prompt/question)
@@ -217,12 +239,12 @@ class PrepareUpgradeTransaction(Actor):
         # prepare container #
         ofs_info, error = preparetransaction.create_overlayfs_dirs(container_root)
         if not ofs_info:
-            self.produce_error(error)
+            produce_error(self, error)
             return
 
         error = preparetransaction.mount_overlayfs(ofs_info)
         if error:
-            self.produce_error(error)
+            produce_error(self, error)
             preparetransaction.remove_overlayfs_dirs(container_root)
             return
 
@@ -241,7 +263,7 @@ class PrepareUpgradeTransaction(Actor):
                         )
 
         if error:
-            self.produce_error(error)
+            produce_error(self, error)
             error_flag = True
 
         # If Subscription Manager OS Release was set before, make sure we do not change it
@@ -255,7 +277,7 @@ class PrepareUpgradeTransaction(Actor):
         # clean #
         error = preparetransaction.umount_overlayfs(ofs_info)
         if error:
-            self.produce_error(error)
+            produce_error(self, error)
             error_flag = True
 
         preparetransaction.remove_overlayfs_dirs(container_root)

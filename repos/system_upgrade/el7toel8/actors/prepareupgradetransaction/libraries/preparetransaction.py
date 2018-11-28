@@ -3,9 +3,8 @@ import shutil
 import six
 import subprocess
 from collections import namedtuple
+from leapp.libraries.common.check_calls import check_cmd_call, ErrorData
 
-
-ErrorData = namedtuple('ErrorData', ['summary', 'details'])
 OverlayfsInfo = namedtuple('OverlayfsInfo', ['upper', 'work', 'merged'])
 
 
@@ -23,7 +22,12 @@ def create_overlayfs_dirs(overlayfs_path):
         except OSError as e:
             error = ErrorData(
                 summary='Error while trying to create Overlayfs directories',
-                details=str(e))
+                details=str(e),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=e.errno)
             return None, error
 
     info = OverlayfsInfo(
@@ -69,16 +73,6 @@ def call(args, split=True):
     return r
 
 
-def check_cmd_call(cmd):
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError as e:
-        return ErrorData(
-            summary='Error while trying to execute command',
-            details=str(e))
-    return None
-
-
 def mount_overlayfs(overlayfs_info):
     return check_cmd_call([
         '/bin/mount',
@@ -90,11 +84,11 @@ def mount_overlayfs(overlayfs_info):
         overlayfs_info.merged])
 
 
-def umount_overlayfs(overlayfs_info):
+def umount_overlayfs(overlayfs_path):
     return check_cmd_call([
         '/bin/umount',
         '-fl',
-        overlayfs_info.merged])
+        os.path.join(overlayfs_path, 'merged')])
 
 
 def copy_file_to_container(overlayfs_info, orig, dest):
@@ -105,14 +99,24 @@ def copy_file_to_container(overlayfs_info, orig, dest):
         except OSError as e:
             return ErrorData(
                 summary='Error while trying to create destination path inside container',
-                details=str(e))
+                details=str(e),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=e.errno)
 
     try:
         shutil.copyfile(orig, os.path.join(final_dest, os.path.basename(orig)))
     except IOError as e:
         return ErrorData(
             summary='Error while trying to copy file to container',
-            details=str(e))
+            details=str(e),
+            stdout=None,
+            stderr=None,
+            cmd=None,
+            rc=None,
+            errno=e.errno)
 
     return None
 
@@ -127,7 +131,12 @@ def copy_file_from_container(overlayfs_info, orig, dest, filename=None):
         except OSError as e:
             return ErrorData(
                 summary='Error while trying to create destination path on the host system.',
-                details=str(e))
+                details=str(e),
+                stdout=None,
+                stderr=None,
+                cmd=None,
+                rc=None,
+                errno=e.errno)
 
     try:
         if not filename:
@@ -136,7 +145,12 @@ def copy_file_from_container(overlayfs_info, orig, dest, filename=None):
     except IOError as e:
         return ErrorData(
             summary='Error while trying to copy file from container',
-            details=str(e))
+            details=str(e),
+            stdout=None,
+            stderr=None,
+            cmd=None,
+            rc=None,
+            errno=e.errno)
 
     return None
 
