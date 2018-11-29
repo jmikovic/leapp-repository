@@ -3,7 +3,7 @@ import shutil
 import six
 import subprocess
 from collections import namedtuple
-from leapp.libraries.common.check_calls import check_cmd_call, ErrorData
+from leapp.libraries.common.check_calls import check_cmd_call, ErrorData, check_cmd_output
 
 OverlayfsInfo = namedtuple('OverlayfsInfo', ['upper', 'work', 'merged'])
 
@@ -47,30 +47,18 @@ def get_list_of_available_repo_uids(overlayfs_info):
     # + repos)
     cmd = ['subscription-manager', 'repos', ]
     uids = []
-    for line in container_call(overlayfs_info, cmd, split=True):
+    output, err = container_call(overlayfs_info, cmd, split=True)
+    if err:
+        return None, err
+    for line in output:
         if line.startswith('Repo ID'):
             uids.append(line.split(':')[1].strip())
-    return uids
+    return uids, None
 
 
 def container_call(overlayfs_info, cmd, split):
     container_cmd = ['systemd-nspawn', '--register=no', '-D', overlayfs_info.merged]
-    return call(container_cmd + cmd, split)
-
-
-# NOTE: The function is used in several actors, should be moved to the library
-# NOTE: It really ugly to have something like this here, I know...
-def call(args, split=True):
-    ''' Call external processes with some additional sugar '''
-    r = None
-    with open(os.devnull, mode='w') as err:
-        if six.PY3:
-            r = subprocess.check_output(args, stderr=err, encoding='utf-8')
-        else:
-            r = subprocess.check_output(args, stderr=err).decode('utf-8')
-    if split:
-        return r.splitlines()
-    return r
+    return check_cmd_output(container_cmd + cmd, split)
 
 
 def mount_overlayfs(overlayfs_info):

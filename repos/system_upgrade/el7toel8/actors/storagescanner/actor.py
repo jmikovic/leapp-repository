@@ -13,10 +13,8 @@ class StorageScanner(Actor):
     produces = (StorageInfo, PartitionEntry,)
     tags = (IPUWorkflowTag, FactsPhaseTag,)
 
-
     def is_file_readable(self, path):
         return os.path.isfile(path) and os.access(path, os.R_OK)
-
 
     def get_cmd_output(self, cmd, delim, expected_len):
         if not any(os.access(os.path.join(path, cmd[0]), os.X_OK) for path in os.environ['PATH'].split(os.pathsep)):
@@ -38,7 +36,6 @@ class StorageScanner(Actor):
             data.extend([''] * (expected_len - len(data)))
 
             yield data
-
 
     def process(self):
         result = StorageInfo()

@@ -1,22 +1,7 @@
 from leapp.actors import Actor
+from leapp.libraries.common.check_calls import check_cmd_call, check_cmd_output, produce_error
 from leapp.models import FirewallDecisionM, CheckResult, SystemFacts
 from leapp.tags import IPUWorkflowTag, ApplicationsPhaseTag
-import six
-import subprocess
-import os
-
-
-def call(args, split=True):
-    ''' Call external processes with some additional sugar '''
-    r = None
-    with open(os.devnull, mode='w') as err:
-        if six.PY3:
-            r = subprocess.check_output(args, stderr=err, encoding='utf-8')
-        else:
-            r = subprocess.check_output(args, stderr=err).decode('utf-8')
-    if split:
-        return r.splitlines()
-    return r
 
 
 class FirewallDisable(Actor):
@@ -29,35 +14,47 @@ class FirewallDisable(Actor):
 
     def stop_firewalld(self):
         ''' Stops FirewallD '''
-        call(['systemctl', 'stop', 'firewalld'])
+        err = check_cmd_call(['systemctl', 'stop', 'firewalld'])
+        if err:
+            produce_error(self, err)
 
     def disable_firewalld(self):
         ''' Disables FirewallD '''
         self.stop_firewalld()
-        call(['systemctl', 'disable', 'firewalld'])
+        err = check_cmd_call(['systemctl', 'disable', 'firewalld'])
+        if err:
+            produce_error(self, err)
 
     def save_iptables(self):
         ''' Saves IPTables '''
         f = open('iptables_bck_workfile', 'w')
-        ret = call(['iptables-save'])
+        ret, err = check_cmd_output(['iptables-save'])
+        if err:
+            produce_error(self, err)
         for line in ret:
             f.write(line+'\n')
         f.close()
 
     def stop_iptables(self):
         ''' Stops IPTables '''
-        call(['systemctl', 'stop', 'iptables'])
+        err = check_cmd_call(['systemctl', 'stop', 'iptables'])
+        if err:
+            produce_error(self, err)
 
     def flush_iptables(self):
         ''' Flushes rules '''
-        call(['iptables', '-F'])
+        err = check_cmd_call(['iptables', '-F'])
+        if err:
+            produce_error(self, err)
 
     def disable_iptables(self):
         ''' Saves, stops and disables IPTables '''
         self.save_iptables()
         self.flush_iptables()
         self.stop_iptables()
-        call(['systemctl', 'disable', 'iptables'])
+        err = check_cmd_call(['systemctl', 'disable', 'iptables'])
+        if err:
+            produce_error(self, err)
 
     def process(self):
         ''' based on a decision maker Actor, it disables firewall services '''

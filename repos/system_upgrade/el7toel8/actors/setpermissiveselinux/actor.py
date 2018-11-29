@@ -3,7 +3,7 @@ import sys
 from leapp.actors import Actor
 from leapp.tags import FinalizationPhaseTag, IPUWorkflowTag
 from leapp.models import SelinuxPermissiveDecision, FinalReport
-from leapp.libraries.actor.setpermissiveselinux import selinux_set_permissive
+from leapp.libraries.common.check_calls import check_cmd_call
 
 
 class SetPermissiveSelinux(Actor):
@@ -16,11 +16,12 @@ class SetPermissiveSelinux(Actor):
     def process(self):
         for decision in self.consume(SelinuxPermissiveDecision):
             if decision.set_permissive:
-                success, err_msg = selinux_set_permissive()
-                if not success:
+                cmd = ['/bin/sed', '-i', 's/^SELINUX=enforcing/SELINUX=permissive/g', '/etc/selinux/config']
+                err = check_cmd_call(cmd)
+                if err:
                     self.produce(FinalReport(
                         severity='Error',
                         result='Fail',
                         summary='Could not set SElinux into permissive mode',
-                        details=err_msg,))
+                        details=err.details,))
                     self.log.critical('Could not set SElinux into permissive mode: %s' % err_msg)

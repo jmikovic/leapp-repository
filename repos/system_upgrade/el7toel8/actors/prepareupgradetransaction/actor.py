@@ -92,17 +92,11 @@ class PrepareUpgradeTransaction(Actor):
         Return ErrorData or None.
         """
         self.target_uids = []
-        try:
-            available_target_uids = set(preparetransaction.get_list_of_available_repo_uids(overlayfs_info))
-        except CalledProcessError as e:
-            return preparetransaction.ErrorData(
-                summary='Error while trying to get list of available RHEL repositories',
-                details=str(e),
-                stdout=e.stdout,
-                stderr=e.stderr,
-                cmd=['systemd-nspawn', '--register=no', '-D', overlayfs_info.merged, 'subscription-manager', 'repos'],
-                rc=e.returncode,
-                errno=0)
+        list_of_repo_uids, err = preparetransaction.get_list_of_available_repo_uids(overlayfs_info)
+        if err:
+            return err
+
+        available_target_uids = set(list_of_repo_uids)
 
         # FIXME: check that required UIDs (baseos, appstream)
         # + or check that all required RHEL UIDs are available.
